@@ -1,5 +1,8 @@
 import anthropic
 import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 
 def create_disaster_summary():
@@ -69,6 +72,31 @@ def save_summary(summary):
     print(f"Summary saved to {filename}")
     return filename
 
+def send_email(summary):
+    """Send summary via email"""
+    sender = os.environ.get("omar.bellprat@gmail.com")
+    password = os.environ.get("jbyw arol vwex ztgi")
+    recipient = os.environ.get("omar.bellprat@gmail.com")
+    
+    if not all([sender, password, recipient]):
+        print("Email credentials not configured, skipping email send")
+        return
+    
+    msg = MIMEMultipart()
+    msg['From'] = sender
+    msg['To'] = recipient
+    msg['Subject'] = f'SE Asia Disaster Summary - {datetime.now().strftime("%B %d, %Y")}'
+    
+    msg.attach(MIMEText(summary, 'plain'))
+    
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(sender, password)
+            smtp.send_message(msg)
+        print(f"Email sent successfully to {recipient}")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+
 def main():
     try:
         print("Starting disaster summary generation...")
@@ -81,10 +109,12 @@ def main():
         print(summary[:500] + "...\n")
         print(f"Full summary saved to: {filename}")
         
+        # Send email if configured
+        send_email(summary)
+        
     except Exception as e:
         print(f"Error generating summary: {e}")
         raise
 
 if __name__ == "__main__":
     main()
-

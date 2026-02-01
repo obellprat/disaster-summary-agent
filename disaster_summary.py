@@ -74,9 +74,9 @@ def save_summary(summary):
 
 def send_email(summary):
     """Send summary via email"""
-    sender = os.environ.get("omar.bellprat@gmail.com")
-    password = os.environ.get("jbyw arol vwex ztgi")
-    recipient = os.environ.get("omar.bellprat@gmail.com")
+    sender = os.environ.get("EMAIL_SENDER")
+    password = os.environ.get("EMAIL_PASSWORD")
+    recipient = os.environ.get("EMAIL_RECIPIENT")
     
     if not all([sender, password, recipient]):
         print("Email credentials not configured, skipping email send")

@@ -40,7 +40,7 @@ For each event, include:
 - Impact (casualties, displaced people, damage if available)
 - Current status
 
-Format the summary clearly with sections for each type of disaster."""
+Format the summary clearly with sections for each type of disaster. Add the sources of the information."""
         }],
         tools=[{"type": "web_search_20250305", "name": "web_search"}]
     )

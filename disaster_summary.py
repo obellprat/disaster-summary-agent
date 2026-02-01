@@ -131,54 +131,78 @@ def markdown_to_html(markdown_text):
             body {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
                 line-height: 1.6;
-                color: #333;
+                color: #2c3e50;
                 max-width: 800px;
                 margin: 0 auto;
                 padding: 20px;
-                background-color: #f5f5f5;
+                background-color: #f8f9fa;
             }
             .container {
                 background-color: white;
-                padding: 30px;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                padding: 40px;
+                border-radius: 12px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             }
             h1 {
-                color: #d32f2f;
-                border-bottom: 3px solid #d32f2f;
-                padding-bottom: 10px;
+                color: #c0392b;
+                border-bottom: 4px solid #c0392b;
+                padding-bottom: 15px;
+                margin-bottom: 30px;
+                font-size: 28px;
             }
             h2 {
-                color: #1976d2;
-                margin-top: 30px;
-                border-left: 4px solid #1976d2;
-                padding-left: 15px;
+                color: #2980b9;
+                margin-top: 35px;
+                margin-bottom: 20px;
+                border-left: 5px solid #2980b9;
+                padding-left: 20px;
+                font-size: 24px;
+                background-color: #ebf5fb;
+                padding-top: 10px;
+                padding-bottom: 10px;
             }
             h3 {
-                color: #388e3c;
-                margin-top: 20px;
+                color: #27ae60;
+                margin-top: 25px;
+                margin-bottom: 15px;
+                font-size: 20px;
+            }
+            p {
+                margin: 10px 0;
+                line-height: 1.8;
             }
             ul {
-                padding-left: 20px;
+                padding-left: 25px;
+                margin: 15px 0;
             }
             li {
-                margin-bottom: 8px;
+                margin-bottom: 10px;
+                line-height: 1.7;
             }
-            strong {
-                color: #d32f2f;
+            .label {
+                color: #c0392b;
+                font-weight: bold;
+            }
+            hr {
+                border: none;
+                border-top: 2px solid #ecf0f1;
+                margin: 30px 0;
             }
             .footer {
-                margin-top: 40px;
-                padding-top: 20px;
-                border-top: 1px solid #ddd;
-                font-size: 0.9em;
-                color: #666;
+                margin-top: 50px;
+                padding-top: 25px;
+                border-top: 2px solid #ecf0f1;
+                font-size: 14px;
+                color: #7f8c8d;
                 text-align: center;
             }
-            .highlight {
+            .date-range {
                 background-color: #fff3cd;
-                padding: 2px 6px;
-                border-radius: 3px;
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 25px;
+                border-left: 4px solid #ffc107;
+                font-size: 16px;
             }
         </style>
     </head>
@@ -186,57 +210,61 @@ def markdown_to_html(markdown_text):
         <div class="container">
     """
     
-    # Simple Markdown to HTML conversion
+    # Clean up the markdown text
     lines = markdown_text.split('\n')
     in_list = False
     
     for line in lines:
+        original_line = line
         line = line.strip()
         
         if not line:
             if in_list:
                 html += "</ul>\n"
                 in_list = False
-            html += "<br>\n"
             continue
+        
+        # Remove all ** from the line first for processing
+        display_line = line.replace('**', '')
         
         # Headers
         if line.startswith('# '):
             if in_list:
                 html += "</ul>\n"
                 in_list = False
-            html += f"<h1>{line[2:]}</h1>\n"
+            html += f"<h1>{display_line[2:]}</h1>\n"
+        
         elif line.startswith('## '):
             if in_list:
                 html += "</ul>\n"
                 in_list = False
-            html += f"<h2>{line[3:]}</h2>\n"
+            html += f"<h2>{display_line[3:]}</h2>\n"
+        
         elif line.startswith('### '):
             if in_list:
                 html += "</ul>\n"
                 in_list = False
-            html += f"<h3>{line[4:]}</h3>\n"
+            html += f"<h3>{display_line[4:]}</h3>\n"
         
-        # Bold text with **
-        elif '**' in line:
-            if in_list:
-                html += "</ul>\n"
-                in_list = False
-            line = line.replace('**', '<strong>', 1)
-            line = line.replace('**', '</strong>', 1)
-            html += f"<p>{line}</p>\n"
-        
-        # Bullet points
+        # Bullet points (handle both - and *)
         elif line.startswith('- ') or line.startswith('* '):
             if not in_list:
                 html += "<ul>\n"
                 in_list = True
-            item = line[2:]
-            # Handle bold within list items
-            while '**' in item:
-                item = item.replace('**', '<strong>', 1)
-                item = item.replace('**', '</strong>', 1)
-            html += f"<li>{item}</li>\n"
+            
+            item = display_line[2:]
+            
+            # Check if line contains labels like "Type:", "Location:", etc.
+            if ':' in item:
+                parts = item.split(':', 1)
+                if len(parts) == 2:
+                    label = parts[0].strip()
+                    value = parts[1].strip()
+                    html += f'<li><span class="label">{label}:</span> {value}</li>\n'
+                else:
+                    html += f"<li>{item}</li>\n"
+            else:
+                html += f"<li>{item}</li>\n"
         
         # Horizontal rule
         elif line.startswith('---'):
@@ -250,11 +278,18 @@ def markdown_to_html(markdown_text):
             if in_list:
                 html += "</ul>\n"
                 in_list = False
-            # Handle bold in paragraphs
-            while '**' in line:
-                line = line.replace('**', '<strong>', 1)
-                line = line.replace('**', '</strong>', 1)
-            html += f"<p>{line}</p>\n"
+            
+            # Check if it's a label line (like "Type: something")
+            if ':' in display_line and not display_line.startswith('http'):
+                parts = display_line.split(':', 1)
+                if len(parts) == 2 and len(parts[0]) < 30:  # Likely a label
+                    label = parts[0].strip()
+                    value = parts[1].strip()
+                    html += f'<p><span class="label">{label}:</span> {value}</p>\n'
+                else:
+                    html += f"<p>{display_line}</p>\n"
+            else:
+                html += f"<p>{display_line}</p>\n"
     
     if in_list:
         html += "</ul>\n"
@@ -262,8 +297,9 @@ def markdown_to_html(markdown_text):
     # Close the HTML
     html += """
         <div class="footer">
-            <p>Generated automatically by Disaster Summary Agent</p>
-            <p>Powered by Claude AI | Data from web sources</p>
+            <p><strong>📊 Automated Weekly Report</strong></p>
+            <p>Generated by Disaster Summary Agent • Powered by Claude AI</p>
+            <p style="font-size: 12px; margin-top: 10px;">Data compiled from multiple news and disaster monitoring sources</p>
         </div>
         </div>
     </body>

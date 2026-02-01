@@ -69,25 +69,6 @@ def save_summary(summary):
     print(f"Summary saved to {filename}")
     return filename
 
-def main():
-    try:
-        print("Starting disaster summary generation...")
-        summary = create_disaster_summary()
-        filename = save_summary(summary)
-        
-        print("\n" + "="*50)
-        print("SUMMARY PREVIEW:")
-        print("="*50)
-        print(summary[:500] + "...\n")
-        print(f"Full summary saved to: {filename}")
-        
-    except Exception as e:
-        print(f"Error generating summary: {e}")
-        raise
-
-if __name__ == "__main__":
-    main()
-
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -119,3 +100,27 @@ def send_email(summary):
 
 # Add to main() function, after save_summary():
 send_email(summary)
+
+def main():
+    try:
+        print("Starting disaster summary generation...")
+        summary = create_disaster_summary()
+        filename = save_summary(summary)
+        
+        print("\n" + "="*50)
+        print("SUMMARY PREVIEW:")
+        print("="*50)
+        print(summary[:500] + "...\n")
+        print(f"Full summary saved to: {filename}")
+        
+        # Send email if configured
+        send_email(summary)
+        
+    except Exception as e:
+        print(f"Error generating summary: {e}")
+        raise
+
+if __name__ == "__main__":
+    main()
+
+

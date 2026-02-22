@@ -16,7 +16,7 @@ def create_disaster_summary():
     
     print(f"Generating disaster summary for {week_ago.strftime('%B %d')} - {today.strftime('%B %d, %Y')}")
     
-    # Create the request
+    # Create the request with clearer instructions
     message = client.messages.create(
         model="claude-sonnet-4-5-20250929",
         max_tokens=4000,
@@ -42,17 +42,61 @@ For each event, include:
 - Severity/magnitude
 - Impact (casualties, displaced people, damage if available)
 - Current status
+- Source
 
-Format the summary clearly with sections for each type of disaster. Add the sources of the information."""
+IMPORTANT: Do NOT include any introductory phrases like "I'll search for" or "Let me search". Start directly with the disaster summary organized by disaster type. Format the summary clearly with sections for each type of disaster."""
         }],
         tools=[{"type": "web_search_20250305", "name": "web_search"}]
     )
     
-    # Extract the summary
+    # Extract and clean the summary
     summary = ""
     for block in message.content:
         if block.type == "text":
             summary += block.text + "\n"
+    
+    # Remove common introductory phrases that Claude might add
+    intro_phrases = [
+        "I'll search for",
+        "Let me search for",
+        "I'll look for",
+        "Let me look for",
+        "I will search",
+        "Let me find",
+        "I'll gather",
+        "Based on my search",
+        "After searching"
+    ]
+    
+    lines = summary.split('\n')
+    cleaned_lines = []
+    skip_line = False
+    
+    for line in lines:
+        # Skip lines that start with common intro phrases
+        line_lower = line.lower().strip()
+        if any(line_lower.startswith(phrase.lower()) for phrase in intro_phrases):
+            skip_line = True
+            continue
+        
+        # Once we hit actual content (headers or substantial text), stop skipping
+        if line.strip().startswith('#') or (len(line.strip()) > 50 and skip_line):
+            skip_line = False
+        
+        if not skip_line:
+            cleaned_lines.append(line)
+    
+    summary = '\n'.join(cleaned_lines).strip()
+    
+    # Add custom header
+    custom_header = f"""# SDC Hub Bangkok: Disasters in Southeast Asia
+**Report Period:** {week_ago.strftime('%B %d')} - {today.strftime('%B %d, %Y')}
+
+---
+
+"""
+    
+    summary = custom_header + summary
     
     return summary
 

@@ -211,21 +211,27 @@ def markdown_to_html(markdown_text):
                 margin-bottom: 15px;
                 font-size: 20px;
             }
-            p {
-                margin: 10px 0;
+            .content-block {
+                margin: 15px 0;
                 line-height: 1.8;
+            }
+            .field {
+                margin: 8px 0;
+                line-height: 1.7;
             }
             ul {
                 padding-left: 25px;
-                margin: 15px 0;
+                margin: 10px 0;
+                list-style-type: disc;
             }
             li {
-                margin-bottom: 10px;
+                margin-bottom: 8px;
                 line-height: 1.7;
             }
             .label {
                 color: #c0392b;
                 font-weight: bold;
+                display: inline;
             }
             hr {
                 border: none;
@@ -240,14 +246,6 @@ def markdown_to_html(markdown_text):
                 color: #7f8c8d;
                 text-align: center;
             }
-            .date-range {
-                background-color: #fff3cd;
-                padding: 15px;
-                border-radius: 8px;
-                margin-bottom: 25px;
-                border-left: 4px solid #ffc107;
-                font-size: 16px;
-            }
         </style>
     </head>
     <body>
@@ -257,18 +255,24 @@ def markdown_to_html(markdown_text):
     # Clean up the markdown text
     lines = markdown_text.split('\n')
     in_list = False
+    in_content_block = False
+    i = 0
     
-    for line in lines:
-        original_line = line
-        line = line.strip()
+    while i < len(lines):
+        line = lines[i].strip()
         
+        # Skip empty lines
         if not line:
             if in_list:
                 html += "</ul>\n"
                 in_list = False
+            if in_content_block:
+                html += "</div>\n"
+                in_content_block = False
+            i += 1
             continue
         
-        # Remove all ** from the line first for processing
+        # Remove ** markdown
         display_line = line.replace('**', '')
         
         # Headers
@@ -276,67 +280,95 @@ def markdown_to_html(markdown_text):
             if in_list:
                 html += "</ul>\n"
                 in_list = False
+            if in_content_block:
+                html += "</div>\n"
+                in_content_block = False
             html += f"<h1>{display_line[2:]}</h1>\n"
         
         elif line.startswith('## '):
             if in_list:
                 html += "</ul>\n"
                 in_list = False
+            if in_content_block:
+                html += "</div>\n"
+                in_content_block = False
             html += f"<h2>{display_line[3:]}</h2>\n"
         
         elif line.startswith('### '):
             if in_list:
                 html += "</ul>\n"
                 in_list = False
+            if in_content_block:
+                html += "</div>\n"
+                in_content_block = False
             html += f"<h3>{display_line[4:]}</h3>\n"
         
-        # Bullet points (handle both - and *)
+        # Bullet points (- or *)
         elif line.startswith('- ') or line.startswith('* '):
+            if in_content_block:
+                html += "</div>\n"
+                in_content_block = False
             if not in_list:
                 html += "<ul>\n"
                 in_list = True
             
             item = display_line[2:]
-            
-            # Check if line contains labels like "Type:", "Location:", etc.
-            if ':' in item:
-                parts = item.split(':', 1)
-                if len(parts) == 2:
-                    label = parts[0].strip()
-                    value = parts[1].strip()
-                    html += f'<li><span class="label">{label}:</span> {value}</li>\n'
-                else:
-                    html += f"<li>{item}</li>\n"
-            else:
-                html += f"<li>{item}</li>\n"
+            html += f"<li>{item}</li>\n"
         
         # Horizontal rule
         elif line.startswith('---'):
             if in_list:
                 html += "</ul>\n"
                 in_list = False
+            if in_content_block:
+                html += "</div>\n"
+                in_content_block = False
             html += "<hr>\n"
         
-        # Regular paragraph
+        # Lines with colons (field labels)
+        elif ':' in display_line and not display_line.startswith('http'):
+            parts = display_line.split(':', 1)
+            if len(parts) == 2 and len(parts[0]) < 40:
+                if in_list:
+                    html += "</ul>\n"
+                    in_list = False
+                if not in_content_block:
+                    html += '<div class="content-block">\n'
+                    in_content_block = True
+                
+                label = parts[0].strip()
+                value = parts[1].strip()
+                
+                if value:  # If there's a value after the colon
+                    html += f'<div class="field"><span class="label">{label}:</span> {value}</div>\n'
+                else:  # If the value is on the next line(s)
+                    html += f'<div class="field"><span class="label">{label}:</span></div>\n'
+            else:
+                # Long line with colon, treat as regular text
+                if in_list:
+                    html += "</ul>\n"
+                    in_list = False
+                if not in_content_block:
+                    html += '<div class="content-block">\n'
+                    in_content_block = True
+                html += f'<div class="field">{display_line}</div>\n'
+        
+        # Regular text
         else:
             if in_list:
                 html += "</ul>\n"
                 in_list = False
-            
-            # Check if it's a label line (like "Type: something")
-            if ':' in display_line and not display_line.startswith('http'):
-                parts = display_line.split(':', 1)
-                if len(parts) == 2 and len(parts[0]) < 30:  # Likely a label
-                    label = parts[0].strip()
-                    value = parts[1].strip()
-                    html += f'<p><span class="label">{label}:</span> {value}</p>\n'
-                else:
-                    html += f"<p>{display_line}</p>\n"
-            else:
-                html += f"<p>{display_line}</p>\n"
+            if not in_content_block:
+                html += '<div class="content-block">\n'
+                in_content_block = True
+            html += f'<div class="field">{display_line}</div>\n'
+        
+        i += 1
     
     if in_list:
         html += "</ul>\n"
+    if in_content_block:
+        html += "</div>\n"
     
     # Close the HTML
     html += """

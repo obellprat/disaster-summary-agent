@@ -1,4 +1,4 @@
-import anthropic
+import openai
 import os
 import smtplib
 from email.mime.text import MIMEText
@@ -6,9 +6,9 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 
 def create_disaster_summary():
-    """Create a weekly summary of natural disasters in Southeast Asia"""
+    """Create a weekly summary of natural disasters in Southeast Asia and the Pacific"""
     
-    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
     
     # Calculate date range
     today = datetime.now()
@@ -16,17 +16,20 @@ def create_disaster_summary():
     
     print(f"Generating disaster summary for {week_ago.strftime('%B %d')} - {today.strftime('%B %d, %Y')}")
     
-    # Create the request with clearer instructions
-    message = client.messages.create(
-        model="claude-sonnet-4-5-20250929",
-        max_tokens=4000,
+    # Create the request
+    response = client.chat.completions.create(
+        model="gpt-4o",  # Latest GPT-4 model with web search capability
         messages=[{
             "role": "user",
-            "content": f"""Search for and create a comprehensive summary of all natural disasters in Southeast Asia from {week_ago.strftime('%B %d')} to {today.strftime('%B %d, %Y')}.
+            "content": f"""Search for and create a comprehensive summary of all natural disasters in Southeast Asia and the Pacific from {week_ago.strftime('%B %d')} to {today.strftime('%B %d, %Y')}.
 
-Southeast Asia includes: Philippines, Indonesia, Vietnam, Thailand, Myanmar, Malaysia, Singapore, Cambodia, Laos, Brunei, and Timor-Leste.
+**REGIONS TO COVER:**
 
-Cover these types of events:
+Southeast Asia: Philippines, Indonesia, Vietnam, Thailand, Myanmar, Malaysia, Singapore, Cambodia, Laos, Brunei, and Timor-Leste.
+
+Pacific: Papua New Guinea, Solomon Islands, Vanuatu, Fiji, Samoa, Tonga, Kiribati, Marshall Islands, Micronesia, Palau, Nauru, Tuvalu, French Polynesia, New Caledonia, Cook Islands, and other Pacific island nations.
+
+**DISASTER TYPES:**
 - Earthquakes and aftershocks
 - Typhoons, cyclones, and tropical storms
 - Floods and flash floods
@@ -35,27 +38,27 @@ Cover these types of events:
 - Tsunamis
 - Droughts (if severe)
 
-For each event, include:
+**FOR EACH EVENT, INCLUDE:**
 - Type of disaster
 - Location (country and region)
 - Date
 - Severity/magnitude
 - Impact (casualties, displaced people, damage if available)
 - Current status
-- Source
 
-IMPORTANT: Do NOT include any introductory phrases like "I'll search for" or "Let me search". Start directly with the disaster summary organized by disaster type. Format the summary clearly with sections for each type of disaster."""
-        }],
-        tools=[{"type": "web_search_20250305", "name": "web_search"}]
+**IMPORTANT:** 
+- Do NOT include any introductory phrases like "I'll search for" or "Let me search"
+- Start directly with the disaster summary
+- Organize by disaster type
+- Use clear section headers
+- Format with markdown"""
+        }]
     )
     
-    # Extract and clean the summary
-    summary = ""
-    for block in message.content:
-        if block.type == "text":
-            summary += block.text + "\n"
+    # Extract the summary
+    summary = response.choices[0].message.content
     
-    # Remove common introductory phrases that Claude might add
+    # Remove common introductory phrases that GPT might add
     intro_phrases = [
         "I'll search for",
         "Let me search for",
@@ -65,7 +68,9 @@ IMPORTANT: Do NOT include any introductory phrases like "I'll search for" or "Le
         "Let me find",
         "I'll gather",
         "Based on my search",
-        "After searching"
+        "After searching",
+        "Here is",
+        "Here's"
     ]
     
     lines = summary.split('\n')
@@ -89,7 +94,7 @@ IMPORTANT: Do NOT include any introductory phrases like "I'll search for" or "Le
     summary = '\n'.join(cleaned_lines).strip()
     
     # Add custom header
-    custom_header = f"""# SDC Hub Bangkok: Disasters in Southeast Asia
+    custom_header = f"""# SDC Hub Bangkok: Disasters in Southeast Asia & the Pacific
 **Report Period:** {week_ago.strftime('%B %d')} - {today.strftime('%B %d, %Y')}
 
 ---
@@ -109,59 +114,10 @@ def save_summary(summary):
     os.makedirs("summaries", exist_ok=True)
     
     with open(filename, 'w', encoding='utf-8') as f:
-        f.write(f"# Southeast Asia Natural Disaster Summary\n")
-        f.write(f"**Week ending:** {datetime.now().strftime('%B %d, %Y')}\n\n")
         f.write(summary)
     
     print(f"Summary saved to {filename}")
     return filename
-
-def send_email(summary):
-    """Send summary via email with HTML formatting"""
-    sender = os.environ.get("EMAIL_SENDER")
-    password = os.environ.get("EMAIL_PASSWORD")
-    recipient = os.environ.get("EMAIL_RECIPIENT")
-    
-    print(f"Email config check:")
-    print(f"  Sender configured: {bool(sender)}")
-    print(f"  Password configured: {bool(password)}")
-    print(f"  Recipient configured: {bool(recipient)}")
-    
-    if not all([sender, password, recipient]):
-        print("❌ Email credentials not configured, skipping email send")
-        return
-    
-    print(f"Attempting to send email from {sender} to {recipient}")
-    
-    # Convert Markdown to HTML
-    html_content = markdown_to_html(summary)
-    
-    # Create message with both plain text and HTML
-    msg = MIMEMultipart('alternative')
-    msg['From'] = sender
-    msg['To'] = recipient
-    msg['Subject'] = f'🌏 SE Asia Disaster Summary - {datetime.now().strftime("%B %d, %Y")}'
-    
-    # Attach both plain text and HTML versions
-    part1 = MIMEText(summary, 'plain')
-    part2 = MIMEText(html_content, 'html')
-    
-    msg.attach(part1)
-    msg.attach(part2)
-    
-    try:
-        print("Connecting to Gmail SMTP server...")
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            print("Logging in...")
-            smtp.login(sender, password)
-            print("Sending message...")
-            smtp.send_message(msg)
-        print(f"✅ Email sent successfully to {recipient}")
-    except smtplib.SMTPAuthenticationError as e:
-        print(f"❌ Authentication failed: {e}")
-        print("Make sure you're using an App Password, not your regular Gmail password")
-    except Exception as e:
-        print(f"❌ Failed to send email: {type(e).__name__}: {e}")
 
 def markdown_to_html(markdown_text):
     """Convert Markdown to formatted HTML email"""
@@ -339,12 +295,11 @@ def markdown_to_html(markdown_text):
                 label = parts[0].strip()
                 value = parts[1].strip()
                 
-                if value:  # If there's a value after the colon
+                if value:
                     html += f'<div class="field"><span class="label">{label}:</span> {value}</div>\n'
-                else:  # If the value is on the next line(s)
+                else:
                     html += f'<div class="field"><span class="label">{label}:</span></div>\n'
             else:
-                # Long line with colon, treat as regular text
                 if in_list:
                     html += "</ul>\n"
                     in_list = False
@@ -374,7 +329,7 @@ def markdown_to_html(markdown_text):
     html += """
         <div class="footer">
             <p><strong>📊 Automated Weekly Report</strong></p>
-            <p>Generated by Disaster Summary Agent • Powered by Claude AI</p>
+            <p>Generated by Disaster Summary Agent • Powered by OpenAI GPT-4</p>
             <p style="font-size: 12px; margin-top: 10px;">Data compiled from multiple news and disaster monitoring sources</p>
         </div>
         </div>
@@ -383,6 +338,56 @@ def markdown_to_html(markdown_text):
     """
     
     return html
+
+def send_email(summary):
+    """Send summary via email with HTML formatting"""
+    sender = os.environ.get("EMAIL_SENDER")
+    password = os.environ.get("EMAIL_PASSWORD")
+    recipients_str = os.environ.get("EMAIL_RECIPIENT")
+    
+    print(f"Email config check:")
+    print(f"  Sender configured: {bool(sender)}")
+    print(f"  Password configured: {bool(password)}")
+    print(f"  Recipients configured: {bool(recipients_str)}")
+    
+    if not all([sender, password, recipients_str]):
+        print("❌ Email credentials not configured, skipping email send")
+        return
+    
+    # Split recipients by comma and clean whitespace
+    recipients = [email.strip() for email in recipients_str.split(',')]
+    
+    print(f"Attempting to send email from {sender} to {len(recipients)} recipient(s): {', '.join(recipients)}")
+    
+    # Convert Markdown to HTML
+    html_content = markdown_to_html(summary)
+    
+    # Create message with both plain text and HTML
+    msg = MIMEMultipart('alternative')
+    msg['From'] = sender
+    msg['To'] = ', '.join(recipients)
+    msg['Subject'] = f'🌏 SDC Hub Bangkok: SE Asia & Pacific Disaster Summary - {datetime.now().strftime("%B %d, %Y")}'
+    
+    # Attach both plain text and HTML versions
+    part1 = MIMEText(summary, 'plain')
+    part2 = MIMEText(html_content, 'html')
+    
+    msg.attach(part1)
+    msg.attach(part2)
+    
+    try:
+        print("Connecting to Gmail SMTP server...")
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            print("Logging in...")
+            smtp.login(sender, password)
+            print("Sending message...")
+            smtp.send_message(msg)
+        print(f"✅ Email sent successfully to: {', '.join(recipients)}")
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"❌ Authentication failed: {e}")
+        print("Make sure you're using an App Password, not your regular Gmail password")
+    except Exception as e:
+        print(f"❌ Failed to send email: {type(e).__name__}: {e}")
 
 def main():
     try:

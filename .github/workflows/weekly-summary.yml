@@ -2,7 +2,7 @@ name: Weekly Disaster Summary
 
 on:
   schedule:
-    - cron: '0 0 * * 1'
+    - cron: '0 9 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -23,11 +23,11 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install anthropic
+          pip install openai
       
       - name: Generate disaster summary
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
